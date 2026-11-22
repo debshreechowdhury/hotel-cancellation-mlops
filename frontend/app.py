@@ -3,7 +3,7 @@
 Run locally:
     streamlit run frontend/app.py
 Set the API URL with env var API_URL, or in .streamlit/secrets.toml:
-    API_URL = "https://<your-service>.run.app"
+    API_URL = "https://<your-app>.azurewebsites.net"
 """
 from __future__ import annotations
 
@@ -79,7 +79,7 @@ api_url = get_api_url()
 with st.sidebar:
     st.header("⚙️ Settings")
     api_url = st.text_input("API URL", api_url).rstrip("/")
-    st.caption("The first request can take ~10 s while Cloud Run wakes up.")
+    st.caption("The first request can take ~10–20 s while the serverless API wakes up.")
     st.divider()
     st.subheader("Load an example")
     preset = st.selectbox("Preset booking", list(PRESETS))
@@ -101,7 +101,7 @@ with st.sidebar:
 # ------------------------------- Main form ---------------------------------
 st.title("🏨 Will this guest cancel?")
 st.write("Enter a booking's details to get the predicted probability that it will be "
-         "cancelled. The prediction comes from a live model API deployed on Google Cloud Run.")
+         "cancelled. The prediction comes from a live model API deployed on Azure Functions.")
 
 if "lead_time" not in st.session_state:  # first load -> default preset
     apply_preset(next(iter(PRESETS)))

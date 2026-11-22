@@ -18,12 +18,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.schemas import BatchPrediction, BatchRequest, Booking, Prediction
 
-MODEL_PATH = Path(os.environ.get("MODEL_PATH", "models/model.joblib"))
-METADATA_PATH = Path(os.environ.get("METADATA_PATH", "models/metadata.json"))
+ROOT = Path(__file__).resolve().parent.parent  # repo root (or the deployed package root)
+MODEL_PATH = Path(os.environ.get("MODEL_PATH", ROOT / "models" / "model.joblib"))
+METADATA_PATH = Path(os.environ.get("METADATA_PATH", ROOT / "models" / "metadata.json"))
 # Optional: gs://bucket/path/model.joblib — downloaded at startup if MODEL_PATH is missing
 MODEL_GCS_URI = os.environ.get("MODEL_GCS_URI")
 
-state: dict = {"model": None, "metadata": {}}
+state: dict = {"model": None, "metadata": {}, "loaded": False}
 
 
 def _download_gcs(uri: str, dest: Path) -> None:
@@ -34,6 +35,11 @@ def _download_gcs(uri: str, dest: Path) -> None:
 
 
 def load_model() -> None:
+    """Idempotent: called at startup and lazily on first request (serverless hosts
+    such as Azure Functions may not run the ASGI lifespan)."""
+    if state["loaded"]:
+        return
+    state["loaded"] = True
     if not MODEL_PATH.exists() and MODEL_GCS_URI:
         print(f"[api] downloading model from {MODEL_GCS_URI}")
         _download_gcs(MODEL_GCS_URI, MODEL_PATH)
@@ -67,6 +73,7 @@ def _risk_level(p: float) -> str:
 
 
 def _predict(bookings: list[Booking]) -> list[Prediction]:
+    load_model()
     model = state["model"]
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
@@ -88,11 +95,13 @@ def root():
 
 @app.get("/health")
 def health():
+    load_model()
     return {"status": "ok", "model_loaded": state["model"] is not None}
 
 
 @app.get("/metadata")
 def metadata():
+    load_model()
     meta = state["metadata"]
     return {k: meta.get(k) for k in ["model_type", "model_version", "trained_at", "threshold",
                                      "metrics", "top_features", "wandb_run_url", "features"]}

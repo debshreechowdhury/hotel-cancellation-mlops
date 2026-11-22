@@ -2,17 +2,19 @@
 # =============================================================================
 # One-shot local setup for macOS / Linux. Run from the repo root:
 #
-#   ./scripts/setup_local.sh                          # data stays local
-#   GCS_BUCKET=<your-bucket> ./scripts/setup_local.sh # also upload to GCS and
-#                                                     # train from GCS (required
-#                                                     # for the final submission)
+#   ./scripts/setup_local.sh
+#
+# It asks once for your Supabase Project URL + secret key (saved to the
+# git-ignored .env), uploads the clean data to Supabase Storage and trains from
+# there. (Alternative: GCS_BUCKET=<bucket> ./scripts/setup_local.sh uses Google
+# Cloud Storage instead; SKIP_CLOUD=1 keeps everything local.)
 #
 # What it does (safe to re-run; finished steps are skipped):
 #   1. finds Python 3.11–3.13 (installs 3.12 with Homebrew if needed)
 #   2. creates .venv and installs requirements-dev.txt
 #   3. finds the Kaggle archive.zip / hotel_bookings.csv and unzips it
 #   4. runs preprocessing
-#   5. (if GCS_BUCKET is set) uploads the clean data to GCS
+#   5. uploads the clean data to Supabase Storage (or GCS)
 #   6. checks the W&B login (prompts for your API key once)
 #   7. trains random_forest, logistic_regression, then the default model
 #   8. smoke-tests the API locally with curl
@@ -98,25 +100,42 @@ step "4/9 Preprocessing"
 python -m src.preprocess
 ok "data/processed/hotel_bookings_clean.csv written"
 
-# --- 5. GCS upload ---------------------------------------------------------------
+# --- 5. cloud storage -------------------------------------------------------------
 TRAIN_ARGS=()
-step "5/9 Cloud storage"
-if [[ -n "${GCS_BUCKET:-}" ]]; then
+step "5/9 Cloud storage (Supabase)"
+# Load saved credentials, if any
+if [[ -f .env ]]; then set -a; # shellcheck disable=SC1091
+  source .env; set +a; fi
+if [[ -z "${GCS_BUCKET:-}" && ( -z "${SUPABASE_URL:-}" || -z "${SUPABASE_KEY:-}" ) && -z "${SKIP_CLOUD:-}" ]]; then
+  echo "Supabase -> your project -> Project Settings:"
+  echo "  * Data API  -> Project URL      (looks like https://abcd1234.supabase.co)"
+  echo "  * API Keys  -> Secret key       (starts with sb_secret_ ; click the eye icon to reveal)"
+  read -r -p "Paste Project URL: " SUPABASE_URL
+  read -r -s -p "Paste Secret key (hidden): " SUPABASE_KEY; echo
+  [[ "$SUPABASE_URL" == https://*.supabase.co* ]] || die "That doesn't look like a Supabase Project URL"
+  [[ -n "$SUPABASE_KEY" ]] || die "Empty key"
+  touch .env
+  grep -v '^SUPABASE_URL=\|^SUPABASE_KEY=' .env > .env.tmp || true
+  printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\n' "${SUPABASE_URL%/}" "$SUPABASE_KEY" >> .env.tmp
+  mv .env.tmp .env && chmod 600 .env
+  export SUPABASE_URL SUPABASE_KEY
+  ok "Saved to .env (git-ignored)"
+fi
+if [[ -n "${SUPABASE_URL:-}" && -n "${SUPABASE_KEY:-}" ]]; then
+  python -m src.ingest upload --set data.source=supabase
+  TRAIN_ARGS=(--set data.source=supabase)
+  ok "Training will download data from Supabase Storage"
+elif [[ -n "${GCS_BUCKET:-}" ]]; then
   command -v gcloud >/dev/null 2>&1 || die "gcloud not found. Install: brew install --cask google-cloud-sdk"
-  if ! gcloud auth application-default print-access-token >/dev/null 2>&1; then
-    warn "No application-default credentials yet — a browser window will open"
-    gcloud auth application-default login
-  fi
-  if ! gcloud storage buckets describe "gs://$GCS_BUCKET" >/dev/null 2>&1; then
-    warn "Bucket gs://$GCS_BUCKET not found — creating it in us-east1"
-    gcloud storage buckets create "gs://$GCS_BUCKET" --location=us-east1
-  fi
+  gcloud auth application-default print-access-token >/dev/null 2>&1 || gcloud auth application-default login
+  gcloud storage buckets describe "gs://$GCS_BUCKET" >/dev/null 2>&1 \
+    || gcloud storage buckets create "gs://$GCS_BUCKET" --location=us-east1
   export GCS_BUCKET
-  python -m src.ingest upload
+  python -m src.ingest upload --set data.source=gcs
+  TRAIN_ARGS=(--set data.source=gcs)
   ok "Training will download data from gs://$GCS_BUCKET"
 else
-  warn "GCS_BUCKET not set — training from the local file for now."
-  warn "The assignment needs cloud ingestion: re-run later with GCS_BUCKET=<bucket>."
+  warn "No cloud storage configured — training from the local file (SKIP_CLOUD set)."
   TRAIN_ARGS=(--set data.source=local)
 fi
 
@@ -171,5 +190,5 @@ else:
 EOF
 echo "W&B project: https://wandb.ai/${ENTITY:-<entity>}/hotel-cancellation"
 echo
-echo "Next: deploy the API ->  PROJECT_ID=<gcp-project-id> ./scripts/deploy_cloud_run.sh"
+echo "Next: deploy the API ->  ./scripts/deploy_azure.sh"
 echo "      run the app    ->  API_URL=http://localhost:8080 streamlit run frontend/app.py"

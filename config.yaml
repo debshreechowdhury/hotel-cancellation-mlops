@@ -9,9 +9,14 @@ project:
   seed: 42
 
 data:
-  # Where training data is read from: "gcs" (Google Cloud Storage) or "local".
-  # Env var DATA_SOURCE overrides this (handy for CI / offline runs).
-  source: gcs
+  # Where training data is read from:
+  #   supabase - Supabase Storage (default; needs SUPABASE_URL + SUPABASE_KEY in .env)
+  #   gcs      - Google Cloud Storage (alternative; needs gcloud credentials)
+  #   local    - the local clean CSV (tests / CI only)
+  # Env var DATA_SOURCE overrides this.
+  source: supabase
+  supabase_bucket: hotel-data             # env var SUPABASE_BUCKET overrides this
+  supabase_path: hotel_bookings_clean.csv
   gcs_bucket: YOUR_BUCKET_NAME            # env var GCS_BUCKET overrides this
   gcs_blob: data/hotel_bookings_clean.csv
   raw_path: data/raw/hotel_bookings.csv          # Kaggle download goes here
