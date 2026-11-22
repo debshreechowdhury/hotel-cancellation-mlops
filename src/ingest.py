@@ -24,7 +24,11 @@ from src.config import get, load_config
 
 
 def _supabase_creds() -> tuple[str, dict]:
-    url = os.environ.get("SUPABASE_URL", "").rstrip("/")
+    url = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+    # Accept URLs copied from the dashboard's REST examples (".../rest/v1")
+    for suffix in ("/rest/v1", "/storage/v1"):
+        if url.endswith(suffix):
+            url = url[: -len(suffix)]
     key = os.environ.get("SUPABASE_KEY", "")
     if not url or not key:
         raise SystemExit(
