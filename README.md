@@ -99,6 +99,16 @@ flowchart LR
 
 ## 6. Setup & usage
 
+### Quick start (one command)
+```bash
+git clone https://github.com/debshreechowdhury/hotel-cancellation-mlops.git && cd hotel-cancellation-mlops
+GCS_BUCKET=<your-bucket> ./scripts/setup_local.sh   # omit GCS_BUCKET to keep data local
+```
+`scripts/setup_local.sh` creates the venv, installs dependencies, unzips the Kaggle download from
+`~/Downloads/archive.zip`, preprocesses, uploads to GCS, logs in to W&B, trains three models,
+smoke-tests the API and prints the metrics. It is safe to re-run. The sections below are the same
+steps done by hand.
+
 ### 6.0 Prerequisites
 - Python 3.11, Docker, the [gcloud CLI](https://cloud.google.com/sdk/docs/install), a GCP project with billing, and a free [W&B](https://wandb.ai) account.
 
