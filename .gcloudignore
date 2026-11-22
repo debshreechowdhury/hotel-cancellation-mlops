@@ -1,0 +1,19 @@
+# Used by `gcloud run deploy --source .`
+# IMPORTANT: without this file gcloud falls back to .gitignore, which excludes
+# models/ — and the deployed API would start without a model.
+.gcloudignore
+.git
+.github
+.venv
+venv
+__pycache__/
+*.pyc
+.pytest_cache/
+wandb/
+data/
+reports/
+frontend/
+tests/
+docs/
+.env
+.streamlit/
