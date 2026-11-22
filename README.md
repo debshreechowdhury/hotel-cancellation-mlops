@@ -5,9 +5,9 @@ API on **Azure Functions** and used by an interactive **Streamlit** app.
 
 | | Link |
 |---|---|
-| **Live app** | `TODO: https://<your-app>.streamlit.app` |
-| **API (Azure Functions)** | `TODO: https://hotel-cancel-api-XXXX.azurewebsites.net` — Swagger docs at `/docs` |
-| **W&B project** | `TODO: https://wandb.ai/<entity>/hotel-cancellation` |
+| **Live app** | https://hotel-cancel-debshree.streamlit.app |
+| **API (Azure Functions)** | https://hotel-cancel-api-6b862d.azurewebsites.net — `POST /predict`, Swagger docs at [`/docs`](https://hotel-cancel-api-6b862d.azurewebsites.net/docs) |
+| **W&B project** | https://forge.coreweave.com/wandb/debshree-chowdhury-duke-university/hotel-cancellation |
 | **Dataset** | [Hotel Booking Demand (Kaggle)](https://www.kaggle.com/datasets/jessemostipak/hotel-booking-demand) |
 
 ---
@@ -55,13 +55,26 @@ flowchart LR
 - **Split:** 70 / 15 / 15 train / validation / test, stratified, seed 42.
 - **Metrics:** ROC-AUC (primary), PR-AUC, F1, precision, recall and accuracy at a 0.5 threshold.
 
-| Model | Val ROC-AUC | Test ROC-AUC | Test F1 | W&B run |
-|---|---|---|---|---|
-| hist_gradient_boosting | TODO | TODO | TODO | TODO |
-| random_forest | TODO | TODO | TODO | TODO |
-| logistic_regression | TODO | TODO | TODO | TODO |
+Deployed model (`hist_gradient_boosting-1122-151706`, trained on the cleaned, de-duplicated Kaggle data pulled from Supabase):
 
-> Fill this from `models/metadata.json` or the W&B dashboard after each run.
+| Split | ROC-AUC | PR-AUC | F1 | Precision | Recall | Accuracy |
+|---|---|---|---|---|---|---|
+| Validation | 0.845 | 0.708 | 0.590 | 0.729 | 0.496 | 0.810 |
+| **Test** | **0.843** | **0.691** | **0.584** | **0.711** | **0.495** | **0.805** |
+
+Most important features (permutation importance, drop in ROC-AUC): `lead_time` (0.089),
+`required_car_parking_spaces` (0.069), `total_of_special_requests` (0.061), `market_segment` (0.054), `adr` (0.037).
+
+At the default 0.5 threshold the model is precise but misses about half of the cancellations; lowering
+`model.threshold` trades precision for recall.
+
+Model comparison (W&B run: [deployed model](https://forge.coreweave.com/wandb/debshree-chowdhury-duke-university/hotel-cancellation/runs/h29urhj4)):
+
+| Model | Val ROC-AUC | Test ROC-AUC | Test F1 |
+|---|---|---|---|
+| hist_gradient_boosting (deployed) | 0.845 | 0.843 | 0.584 |
+| random_forest | TODO (from W&B) | TODO | TODO |
+| logistic_regression | TODO (from W&B) | TODO | TODO |
 > Plots (`reports/`): confusion matrix, ROC curve and permutation feature importance, all also logged to W&B.
 
 ## 4. Cloud services used

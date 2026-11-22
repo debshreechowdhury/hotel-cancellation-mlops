@@ -100,14 +100,19 @@ ok "Published $(du -h "$ZIP" | cut -f1) package"
 
 # --- verify ------------------------------------------------------------------------------------
 step "6/6 Testing the live endpoint"
-HOST=$(az functionapp show -n "$APP" -g "$RG" --query defaultHostName -o tsv)
+# Flex Consumption apps report the hostname under properties.defaultHostName
+HOST=$(az resource show -g "$RG" -n "$APP" --resource-type Microsoft.Web/sites \
+         --query properties.defaultHostName -o tsv 2>/dev/null || true)
+[[ -n "$HOST" ]] || HOST="$APP.azurewebsites.net"
 URL="https://$HOST"
-for i in $(seq 1 24); do
-  if curl -sf "$URL/health" >/dev/null; then break; fi
+for _ in $(seq 1 24); do
+  if curl -sf "$URL/health" >/dev/null 2>&1; then break; fi
   sleep 5
 done
-curl -s "$URL/health"; echo
-curl -s -X POST "$URL/predict" -H "Content-Type: application/json" -d @scripts/sample_request.json; echo
+curl -sS "$URL/health" || warn "Health check failed — the app may still be starting; retry in a minute"
+echo
+curl -sS -X POST "$URL/predict" -H "Content-Type: application/json" -d @scripts/sample_request.json || true
+echo
 echo
 ok "Deployed: $URL"
 echo "   Docs:    $URL/docs"
