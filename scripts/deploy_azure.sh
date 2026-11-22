@@ -6,7 +6,8 @@
 #   ./scripts/deploy_azure.sh                  # first deploy and every redeploy
 #   LOCATION=westus2 ./scripts/deploy_azure.sh # if your subscription blocks eastus
 #
-# Needs a trained model in models/ (run ./scripts/setup_local.sh first).
+# Needs a trained model in models/ (run ./scripts/setup_local.sh first) and
+# the Azure CLI (installed with Homebrew if missing).
 # Resource names are saved in .azure-deploy.env so redeploys reuse them.
 # =============================================================================
 set -euo pipefail
@@ -20,17 +21,15 @@ die()  { printf "\033[1;31m✗ %s\033[0m\n" "$*" >&2; exit 1; }
 [[ -f models/model.joblib ]] || die "models/model.joblib not found — run ./scripts/setup_local.sh first"
 
 # --- tools ---------------------------------------------------------------------
-step "1/6 Checking tools (Azure CLI, Functions Core Tools)"
+step "1/6 Checking tools (Azure CLI, zip)"
+# Only the Azure CLI is needed: we zip-deploy with a remote build, so Azure
+# Functions Core Tools (and Xcode Command Line Tools) are not required.
 if ! command -v az >/dev/null 2>&1; then
   command -v brew >/dev/null 2>&1 || die "Install the Azure CLI: https://learn.microsoft.com/cli/azure/install-azure-cli"
   brew install azure-cli
 fi
-if ! command -v func >/dev/null 2>&1; then
-  command -v brew >/dev/null 2>&1 || die "Install Azure Functions Core Tools v4: https://learn.microsoft.com/azure/azure-functions/functions-run-local"
-  brew tap azure/functions
-  brew install azure-functions-core-tools@4
-fi
-ok "az $(az version --query '"azure-cli"' -o tsv 2>/dev/null), func $(func --version)"
+command -v zip >/dev/null 2>&1 || die "zip not found"
+ok "az $(az version --query '"azure-cli"' -o tsv 2>/dev/null)"
 
 # --- login -----------------------------------------------------------------------
 step "2/6 Azure login"
@@ -91,8 +90,13 @@ find "$BUILD" -name __pycache__ -prune -exec rm -rf {} +
 ok "Package ready ($(du -sh "$BUILD" | cut -f1))"
 
 # --- publish ---------------------------------------------------------------------------------
-step "5/6 Publishing (remote build on Azure, ~3–5 min)"
-(cd "$BUILD" && func azure functionapp publish "$APP" --python)
+step "5/6 Publishing (zip deploy + remote build on Azure, ~3–5 min)"
+ZIP=build/azure.zip
+rm -f "$ZIP"
+(cd "$BUILD" && zip -qr ../azure.zip . -x '*.pyc')
+az functionapp deployment source config-zip -g "$RG" -n "$APP" --src "$ZIP" \
+  --build-remote true --timeout 900 -o none
+ok "Published $(du -h "$ZIP" | cut -f1) package"
 
 # --- verify ------------------------------------------------------------------------------------
 step "6/6 Testing the live endpoint"

@@ -168,12 +168,13 @@ Interactive docs: http://localhost:8080/docs. Every field has a default, so part
 ```bash
 ./scripts/deploy_azure.sh
 ```
-The script installs the Azure CLI and Functions Core Tools if missing (Homebrew), logs in, creates
+The script installs the Azure CLI if missing (Homebrew), logs in, creates
 a resource group, storage account and a **Flex Consumption** Python 3.11 Function App, packages
 `api/`, `src/`, the trained model and `deploy/azure/` (`function_app.py` wraps the same FastAPI app
-with `AsgiFunctionApp`; `host.json` removes the default `/api` prefix), publishes with a remote
-build, and calls `/health` and `/predict` on the live URL. Resource names are saved in
-`.azure-deploy.env`, so re-running it redeploys the same app.
+with `AsgiFunctionApp`; `host.json` removes the default `/api` prefix), publishes it, and calls `/health` and `/predict` on the live URL. Resource names are saved in
+`.azure-deploy.env`, so re-running it redeploys the same app. Deployment is a zip deploy with a
+remote build (`az functionapp deployment source config-zip --build-remote true`), so Azure
+Functions Core Tools are not needed.
 Azure for Students limits regions; if creation is refused, run `LOCATION=westus2 ./scripts/deploy_azure.sh`.
 
 Verify:
