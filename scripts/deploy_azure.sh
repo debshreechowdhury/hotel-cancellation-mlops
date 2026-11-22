@@ -48,7 +48,7 @@ if [[ -f "$STATE" ]]; then
   # shellcheck disable=SC1090
   source "$STATE"
 else
-  SUFFIX=$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 6)
+  SUFFIX=$(openssl rand -hex 3)   # 6 lowercase hex chars (tr|head trips pipefail)
   RG="hotel-cancel-rg"
   APP="hotel-cancel-api-$SUFFIX"
   STORAGE="hotelcancel$SUFFIX"
