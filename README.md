@@ -55,7 +55,7 @@ flowchart LR
 - **Split:** 70 / 15 / 15 train / validation / test, stratified, seed 42.
 - **Metrics:** ROC-AUC (primary), PR-AUC, F1, precision, recall and accuracy at a 0.5 threshold.
 
-Deployed model (`hist_gradient_boosting-1122-151706`, trained on the cleaned, de-duplicated Kaggle data pulled from Supabase):
+Deployed model (`hist_gradient_boosting-1122-170655`). Data: 119,390 raw bookings → 85,950 after cleaning and de-duplication, downloaded from Supabase Storage at training time; split 60,164 / 12,893 / 12,893; cancellation rate 27.6%.
 
 | Split | ROC-AUC | PR-AUC | F1 | Precision | Recall | Accuracy |
 |---|---|---|---|---|---|---|
@@ -68,13 +68,16 @@ Most important features (permutation importance, drop in ROC-AUC): `lead_time` (
 At the default 0.5 threshold the model is precise but misses about half of the cancellations; lowering
 `model.threshold` trades precision for recall.
 
-Model comparison (W&B run: [deployed model](https://forge.coreweave.com/wandb/debshree-chowdhury-duke-university/hotel-cancellation/runs/h29urhj4)):
+Model comparison (same data, split and seed; all runs tracked in W&B):
 
-| Model | Val ROC-AUC | Test ROC-AUC | Test F1 |
-|---|---|---|---|
-| hist_gradient_boosting (deployed) | 0.845 | 0.843 | 0.584 |
-| random_forest | TODO (from W&B) | TODO | TODO |
-| logistic_regression | TODO (from W&B) | TODO | TODO |
+| Model | Val ROC-AUC | Test ROC-AUC | Test PR-AUC | Test F1 | W&B run |
+|---|---|---|---|---|---|
+| **hist_gradient_boosting (deployed)** | **0.845** | **0.843** | **0.691** | **0.584** | [26siw72k](https://forge.coreweave.com/wandb/debshree-chowdhury-duke-university/hotel-cancellation/runs/26siw72k) |
+| random_forest | 0.837 | 0.833 | 0.674 | 0.550 | [47fwikpd](https://forge.coreweave.com/wandb/debshree-chowdhury-duke-university/hotel-cancellation/runs/47fwikpd) |
+| logistic_regression | 0.801 | 0.796 | 0.620 | 0.495 | [2b9k8fg8](https://forge.coreweave.com/wandb/debshree-chowdhury-duke-university/hotel-cancellation/runs/2b9k8fg8) |
+
+Gradient boosting has the best ROC-AUC, PR-AUC and F1 (random forest is slightly more precise but misses more cancellations) and is also the smallest artifact (0.3 MB vs 9 MB for the
+random forest), so it is the model we deploy.
 > Plots (`reports/`): confusion matrix, ROC curve and permutation feature importance, all also logged to W&B.
 
 ## 4. Cloud services used

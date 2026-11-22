@@ -28,16 +28,15 @@ API_URL=https://<our-api>.azurewebsites.net streamlit run frontend/app.py
 ```
 Pick each preset in the sidebar → **Load preset** → **Predict** and check that it works.
 
-## Task 2 — Fill in model results and write "Ethics & limitations" (`README.md`)
+## Task 2 — Write "Ethics & limitations" (`README.md`)
 
-1. In section 3, fill the results table from our W&B dashboard (ask for the link).
-2. Replace the TODO in **section 7** with ~200–300 words covering:
+1. Replace the TODO in **section 7** with ~200–300 words covering:
    - **Proxy / fairness risk:** `country` predicts cancellation well but stands in for nationality. We left it out by default (`features.include_country: false`). Mention how much AUC it adds if we ran that experiment.
    - **How predictions could be misused:** e.g. charging or refusing guests from "high-risk" groups, versus legitimate uses like overbooking buffers and reminder emails.
    - **Data limitations:** two hotels in Portugal, 2015–2017, pre-COVID. Won't generalise to other markets or to today's booking behaviour.
    - **Model limitations:** threshold 0.5 is arbitrary; probabilities aren't calibrated; synthetic test data is only for CI.
    - **Human in the loop:** predictions support staff decisions; they don't make them.
-3. In section 9, add both names.
+2. In section 9, add both names.
 
 ## Task 3 — Open the PR
 ```bash
