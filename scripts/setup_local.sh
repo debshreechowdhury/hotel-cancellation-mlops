@@ -189,7 +189,7 @@ else:
         print(f"  {k:<16} {v:.4f}")
     print("top features:", ", ".join(f["feature"] for f in m["top_features"][:5]))
 EOF
-echo "W&B project: https://wandb.ai/${ENTITY:-<entity>}/hotel-cancellation"
+python -c "import json;u=json.load(open('models/metadata.json')).get('wandb_run_url') or '';print('W&B project:', u.split('/runs/')[0] if u else 'n/a')" 2>/dev/null || true
 echo
 echo "Next: deploy the API ->  ./scripts/deploy_azure.sh"
 echo "      run the app    ->  API_URL=http://localhost:8080 streamlit run frontend/app.py"
