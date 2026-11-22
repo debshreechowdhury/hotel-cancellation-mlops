@@ -1,12 +1,12 @@
 # 🏨 Will This Guest Cancel? — A Reproducible, Deployed ML Pipeline
 
 Predicts the probability that a hotel booking will be cancelled, served from a live
-API on **Google Cloud Run** and used by an interactive **Streamlit** app.
+API on **Azure Functions** and used by an interactive **Streamlit** app.
 
 | | Link |
 |---|---|
 | **Live app** | `TODO: https://<your-app>.streamlit.app` |
-| **API (Cloud Run)** | `TODO: https://hotel-cancel-api-XXXX.run.app` — Swagger docs at `/docs` |
+| **API (Azure Functions)** | `TODO: https://hotel-cancel-api-XXXX.azurewebsites.net` — Swagger docs at `/docs` |
 | **W&B project** | `TODO: https://wandb.ai/<entity>/hotel-cancellation` |
 | **Dataset** | [Hotel Booking Demand (Kaggle)](https://www.kaggle.com/datasets/jessemostipak/hotel-booking-demand) |
 
@@ -17,22 +17,22 @@ API on **Google Cloud Run** and used by an interactive **Streamlit** app.
 Hotels overbook, adjust deposits and send reminders based on how likely a booking is to
 be cancelled. We built an end-to-end MLOps system around that question:
 
-- **Data** cleaned locally and hosted in **Google Cloud Storage**; the pipeline downloads it programmatically.
+- **Data** cleaned locally and hosted in **Supabase Storage**; the pipeline downloads it programmatically (Google Cloud Storage is supported as an alternative).
 - **Reproducible pipeline**: ingestion → preprocessing & feature engineering → train/val/test split → training → evaluation, all controlled by `config.yaml`.
 - **Experiment tracking** with **Weights & Biases** (params, metrics, plots, versioned model artifact).
 - **One Docker image** with entry points for training and serving.
-- **FastAPI** `/predict` endpoint deployed to **Cloud Run**.
+- **FastAPI** `/predict` endpoint deployed to **Azure Functions** (Flex Consumption).
 - **Streamlit** front end, hosted on **Streamlit Community Cloud**, that calls the live API.
 
 ```mermaid
 flowchart LR
     K[Kaggle CSV] -->|src.preprocess| C[Clean CSV]
-    C -->|src.ingest upload| G[(GCS bucket)]
+    C -->|src.ingest upload| G[(Supabase Storage)]
     G -->|src.train: ingest| P[sklearn Pipeline<br/>feature eng + model]
     P -->|metrics, plots, model artifact| W[Weights & Biases]
-    P -->|model.joblib| D[Docker image<br/>FastAPI]
-    D -->|gcloud run deploy| R[Cloud Run /predict]
-    R <-->|requests| S[Streamlit app]
+    P -->|model.joblib| D[FastAPI app<br/>Docker image locally]
+    D -->|scripts/deploy_azure.sh| R[Azure Functions /predict]
+    R <-->|requests| S[Streamlit Cloud app]
 ```
 
 ## 2. Dataset
@@ -68,9 +68,9 @@ flowchart LR
 
 | Service | Purpose |
 |---|---|
-| Google Cloud Storage | Hosts the cleaned dataset (`gs://<bucket>/data/hotel_bookings_clean.csv`) |
-| Google Cloud Build + Artifact Registry | Builds the Docker image from source |
-| Google Cloud Run | Serves the FastAPI model API (scales to zero) |
+| Supabase Storage | Hosts the cleaned dataset (bucket `hotel-data`, file `hotel_bookings_clean.csv`) |
+| Azure Functions (Flex Consumption, Python 3.11) | Serves the FastAPI model API (scales to zero); deployed with `scripts/deploy_azure.sh` |
+| Azure Storage + Application Insights | Created automatically for the Function App (package storage, logs) |
 | Weights & Biases | Experiment tracking and model artifact versioning |
 | Streamlit Community Cloud | Hosts the front end |
 | GitHub Actions | Runs tests and a Docker smoke-test on every PR |
@@ -92,7 +92,8 @@ flowchart LR
 │   └── train.py             # the end-to-end pipeline
 ├── api/                     # FastAPI app + Pydantic schemas
 ├── frontend/                # Streamlit app (+ its own requirements.txt)
-├── scripts/                 # deploy script, sample request, synthetic data generator
+├── deploy/azure/            # Azure Functions wrapper (function_app.py, host.json, slim requirements)
+├── scripts/                 # setup + deploy scripts, sample request, synthetic data generator
 ├── tests/                   # pytest suite (runs on synthetic data)
 └── .github/workflows/ci.yml
 ```
@@ -102,38 +103,40 @@ flowchart LR
 ### Quick start (one command)
 ```bash
 git clone https://github.com/debshreechowdhury/hotel-cancellation-mlops.git && cd hotel-cancellation-mlops
-GCS_BUCKET=<your-bucket> ./scripts/setup_local.sh   # omit GCS_BUCKET to keep data local
+./scripts/setup_local.sh      # data -> Supabase, train 3 models, test the API
+./scripts/deploy_azure.sh     # deploy the API to Azure Functions
 ```
-`scripts/setup_local.sh` creates the venv, installs dependencies, unzips the Kaggle download from
-`~/Downloads/archive.zip`, preprocesses, uploads to GCS, logs in to W&B, trains three models,
-smoke-tests the API and prints the metrics. It is safe to re-run. The sections below are the same
-steps done by hand.
+`setup_local.sh` creates the venv, installs dependencies, unzips the Kaggle download from
+`~/Downloads/archive.zip`, preprocesses, asks once for your Supabase URL/secret key (saved to the
+git-ignored `.env`), uploads the data, logs in to W&B, trains three models (downloading the data
+from Supabase), smoke-tests the API and prints the metrics. Both scripts are safe to re-run.
+The sections below are the same steps done by hand.
 
 ### 6.0 Prerequisites
-- Python 3.11, Docker, the [gcloud CLI](https://cloud.google.com/sdk/docs/install), a GCP project with billing, and a free [W&B](https://wandb.ai) account.
+- Python 3.11–3.13, Docker (for the container steps), free accounts on [Supabase](https://supabase.com),
+  [Azure for Students](https://azure.microsoft.com/free/students) (no credit card) and [W&B](https://wandb.ai).
 
 ```bash
 python3.11 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
-gcloud auth login
-gcloud auth application-default login        # lets Python read/write GCS
-wandb login                                  # paste your API key
+cp .env.example .env      # then fill in SUPABASE_URL and SUPABASE_KEY (secret key)
+wandb login               # paste your API key
 ```
 
-### 6.1 Get the data and host it in GCS
+### 6.1 Get the data and host it in Supabase
 ```bash
 # 1. Download hotel_bookings.csv from Kaggle into data/raw/
 # 2. Clean it
 python -m src.preprocess                     # -> data/processed/hotel_bookings_clean.csv
-# 3. Create a bucket and upload (bucket names are global — pick a unique one)
-gcloud storage buckets create gs://YOUR_BUCKET_NAME --location=us-east1
-# set data.gcs_bucket in config.yaml (or export GCS_BUCKET=YOUR_BUCKET_NAME), then:
+# 3. Upload (creates the private bucket "hotel-data" if needed; uses SUPABASE_URL/KEY from .env)
 python -m src.ingest upload
 ```
+*Alternative:* Google Cloud Storage — set `data.source: gcs` and `data.gcs_bucket`, run
+`gcloud auth application-default login`, then the same `python -m src.ingest upload`.
 
 ### 6.2 Train the model
 ```bash
-python -m src.train                                   # downloads from GCS, trains, logs to W&B
+python -m src.train                                   # downloads from Supabase, trains, logs to W&B
 python -m src.train --set model.type=random_forest    # another experiment
 python -m src.train --set features.include_country=true --set model.threshold=0.4
 ```
@@ -142,11 +145,7 @@ Outputs: `models/model.joblib`, `models/metadata.json`, and plots in `reports/`.
 **Train inside Docker (fully reproducible):**
 ```bash
 docker build -t hotel-cancel .
-docker run --rm \
-  -e WANDB_API_KEY=$WANDB_API_KEY \
-  -e GCS_BUCKET=YOUR_BUCKET_NAME -e GOOGLE_CLOUD_PROJECT=your-gcp-project \
-  -e GOOGLE_APPLICATION_CREDENTIALS=/tmp/adc.json \
-  -v ~/.config/gcloud/application_default_credentials.json:/tmp/adc.json:ro \
+docker run --rm --env-file .env -e WANDB_API_KEY=$WANDB_API_KEY \
   -v "$(pwd)/models:/app/models" \
   hotel-cancel train
 ```
@@ -165,22 +164,30 @@ curl -X POST http://localhost:8080/predict \
 ```
 Interactive docs: http://localhost:8080/docs. Every field has a default, so partial payloads such as `{"lead_time": 200}` work too.
 
-### 6.4 Deploy the API to Cloud Run
+### 6.4 Deploy the API to Azure Functions
 ```bash
-PROJECT_ID=your-gcp-project ./scripts/deploy_cloud_run.sh
+./scripts/deploy_azure.sh
 ```
-This builds the image with Cloud Build (the trained `models/model.joblib` is baked in;
-`.gcloudignore` makes sure it is uploaded) and deploys a public service. Verify:
+The script installs the Azure CLI and Functions Core Tools if missing (Homebrew), logs in, creates
+a resource group, storage account and a **Flex Consumption** Python 3.11 Function App, packages
+`api/`, `src/`, the trained model and `deploy/azure/` (`function_app.py` wraps the same FastAPI app
+with `AsgiFunctionApp`; `host.json` removes the default `/api` prefix), publishes with a remote
+build, and calls `/health` and `/predict` on the live URL. Resource names are saved in
+`.azure-deploy.env`, so re-running it redeploys the same app.
+Azure for Students limits regions; if creation is refused, run `LOCATION=westus2 ./scripts/deploy_azure.sh`.
+
+Verify:
 ```bash
-curl -X POST https://<service-url>/predict -H "Content-Type: application/json" -d @scripts/sample_request.json
+curl -X POST https://<app>.azurewebsites.net/predict -H "Content-Type: application/json" -d @scripts/sample_request.json
 ```
+*Alternative:* Google Cloud Run — `PROJECT_ID=<id> ./scripts/deploy_cloud_run.sh` (needs a billing-enabled GCP project).
 
 ### 6.5 Run / deploy the front end
 ```bash
-API_URL=https://<service-url> streamlit run frontend/app.py
+API_URL=https://<app>.azurewebsites.net streamlit run frontend/app.py
 ```
 **Streamlit Community Cloud:** New app → pick this repo → main file `frontend/app.py` →
-Advanced settings → Secrets: `API_URL = "https://<service-url>"` → Deploy.
+Advanced settings → Secrets: `API_URL = "https://<app>.azurewebsites.net"` → Deploy.
 
 ### 6.6 Tests
 ```bash

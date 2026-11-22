@@ -24,7 +24,7 @@ Allowed values: see the selectbox lists in the same file (`SEGMENTS`, `CHANNELS`
 
 Test it:
 ```bash
-API_URL=https://<our-cloud-run-url> streamlit run frontend/app.py
+API_URL=https://<our-api>.azurewebsites.net streamlit run frontend/app.py
 ```
 Pick each preset in the sidebar → **Load preset** → **Predict** and check that it works.
 

@@ -28,3 +28,7 @@ gcp-key*.json
 .DS_Store
 .idea/
 .vscode/
+
+# Azure deploy
+build/
+.azure-deploy.env

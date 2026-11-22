@@ -14,3 +14,5 @@ docs
 .env
 .streamlit
 *.md
+build
+.azure-deploy.env

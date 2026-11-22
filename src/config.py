@@ -8,11 +8,27 @@ from typing import Any, Iterable
 
 import yaml
 
-DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.yaml"
+ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_CONFIG_PATH = ROOT / "config.yaml"
+
+
+def load_dotenv(path: Path = ROOT / ".env") -> None:
+    """Minimal .env loader (KEY=VALUE lines). Never overrides real env vars."""
+    if not path.exists():
+        return
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip().removeprefix("export ").strip()
+        value = value.strip().strip('"').strip("'")
+        os.environ.setdefault(key, value)
 
 # env var -> dotted config key
 ENV_OVERRIDES = {
     "DATA_SOURCE": "data.source",
+    "SUPABASE_BUCKET": "data.supabase_bucket",
     "GCS_BUCKET": "data.gcs_bucket",
     "GCS_BLOB": "data.gcs_blob",
     "MODEL_TYPE": "model.type",
@@ -46,6 +62,7 @@ def load_config(path: str | os.PathLike | None = None,
     Precedence (lowest -> highest): config file, env vars, ``--set key=value``.
     Override values are parsed as YAML, so ``--set split.test_size=0.2`` gives a float.
     """
+    load_dotenv()
     path = Path(path) if path else DEFAULT_CONFIG_PATH
     with open(path) as f:
         cfg = yaml.safe_load(f) or {}
