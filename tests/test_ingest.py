@@ -61,3 +61,10 @@ def test_missing_credentials_message(monkeypatch):
     monkeypatch.delenv("SUPABASE_KEY", raising=False)
     with pytest.raises(SystemExit, match="SUPABASE_URL"):
         ingest._supabase_creds()
+
+
+def test_rest_v1_suffix_is_stripped(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", "https://abc.supabase.co/rest/v1/")
+    monkeypatch.setenv("SUPABASE_KEY", "sb_secret_x")
+    url, _ = ingest._supabase_creds()
+    assert url == "https://abc.supabase.co"

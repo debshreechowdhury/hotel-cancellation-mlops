@@ -116,7 +116,8 @@ if [[ -z "${GCS_BUCKET:-}" && ( -z "${SUPABASE_URL:-}" || -z "${SUPABASE_KEY:-}"
   [[ -n "$SUPABASE_KEY" ]] || die "Empty key"
   touch .env
   grep -v '^SUPABASE_URL=\|^SUPABASE_KEY=' .env > .env.tmp || true
-  printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\n' "${SUPABASE_URL%/}" "$SUPABASE_KEY" >> .env.tmp
+  SUPABASE_URL="${SUPABASE_URL%/}"; SUPABASE_URL="${SUPABASE_URL%/rest/v1}"
+  printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_KEY" >> .env.tmp
   mv .env.tmp .env && chmod 600 .env
   export SUPABASE_URL SUPABASE_KEY
   ok "Saved to .env (git-ignored)"
