@@ -1,0 +1,13 @@
+# Streamlit theme for the front end (read from the repo root on Streamlit Cloud).
+# Light base so widgets match the app's paper background regardless of the
+# viewer's OS dark-mode setting.
+[theme]
+base = "light"
+primaryColor = "#1F5446"
+backgroundColor = "#F3F6F4"
+secondaryBackgroundColor = "#E4ECE8"
+textColor = "#1B2421"
+font = "sans serif"
+
+[client]
+toolbarMode = "minimal"
