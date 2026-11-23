@@ -168,6 +168,7 @@ h1, h2, h3, .serif {{ font-family: 'Marcellus', Georgia, serif !important; font-
        font-size: .92rem; }}
 .drv .bar {{ height: 8px; background: {LOBBY}; border-radius: 4px; opacity: .8; }}
 @media (max-width: 640px) {{ .drv {{ grid-template-columns: 8.5rem 1fr; }} }}
+[data-testid="stVegaLiteChart"] {{ border: 1px solid #D5E0DB; border-radius: 4px; overflow: hidden; margin-top: .9rem; }}
 .foot {{ color: {MUTED}; font-size: .85rem; margin-top: 2rem; max-width: 46rem; }}
 </style>
 """, unsafe_allow_html=True)
@@ -311,6 +312,11 @@ if submitted:
 
 
 # ------------------------------------------------------------------- slip
+def pct(p: float) -> str:
+    """Never claim certainty: the model's extremes are shown as >99% / <1%."""
+    return ">99%" if p >= 0.995 else "<1%" if p < 0.005 else f"{p:.0%}"
+
+
 def facts_html(b: dict) -> str:
     nights = b["stays_in_weekend_nights"] + b["stays_in_week_nights"]
     guests = b["adults"] + b["children"] + b["babies"]
@@ -353,9 +359,9 @@ with right:
           <h3>{html.escape(b['hotel'])}</h3>
           <p class="sub">Reservation slip</p>
           {facts_html(b)}
-          <div class="prob" style="color:{r['ink']}">{p:.0%}</div>
+          <div class="prob" style="color:{r['ink']}">{html.escape(pct(p))}</div>
           <div class="prob-label">chance this booking is cancelled</div>
-          <div class="meter" role="img" aria-label="{p:.0%} cancellation probability; decision line at {thr:.0%}">
+          <div class="meter" role="img" aria-label="{html.escape(pct(p))} cancellation probability; decision line at {thr:.0%}">
             <div class="fill" style="width:{p*100:.1f}%;background:{r['ink']}"></div>
             <div class="line" style="left:{thr*100:.1f}%"><span>decision line</span></div>
           </div>
@@ -382,8 +388,8 @@ with right:
             fontWeight=600, color=INK, anchor="start")
         ).configure_axis(labelFont="Karla", titleFont="Karla", labelColor=MUTED, titleColor=MUTED,
                          gridColor="#E4ECE8", domainColor="#C3CFCA"
-        ).configure_view(strokeWidth=0)
-        st.altair_chart(chart)
+        ).configure_view(strokeWidth=0).configure(background="#FFFFFF", padding=12)
+        st.altair_chart(chart, theme=None)
 
         with st.expander("See the API call behind this result"):
             st.caption(f"POST {api_url}/predict")
