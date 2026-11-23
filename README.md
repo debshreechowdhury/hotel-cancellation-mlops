@@ -213,7 +213,36 @@ pytest -q        # synthetic data, no cloud access needed
 
 ## 7. Ethics & limitations
 
-> TODO (teammate PR — see `docs/TEAMMATE_TASK.md`).
+**Proxy and fairness risk.** `country` is one of the more predictive columns in the
+dataset, but it is effectively a stand-in for nationality. A model that uses it would
+score guests differently because of where they come from rather than how they booked.
+We therefore exclude it by default (`features.include_country: false`); the flag exists
+only so the trade-off can be measured as a tracked experiment. Other features can still
+act as weaker proxies: market segment, distribution channel and deposit type correlate
+with income and with how a guest was able to book.
+
+**Intended use and misuse.** The predictions are meant for aggregate, operational
+decisions: sizing overbooking buffers, forecasting occupancy, and deciding which
+bookings get a reminder email. They should not be used to refuse a reservation, charge
+a higher rate or demand a stricter deposit from an individual guest because the model
+labels them "high risk". That would penalise people for the behaviour of others who
+merely resemble them.
+
+**Data limitations.** The data covers two hotels in Portugal between 2015 and 2017.
+It predates COVID-19 and today's flexible-cancellation policies, so the patterns it
+contains will not transfer reliably to other markets or to current booking behaviour.
+Removing about 30k exact duplicate rows also changes the cancellation rate (37% to
+about 27%), and some of those rows may have been genuine separate bookings.
+
+**Model limitations.** The 0.5 threshold is a default, not a tuned business decision;
+at that threshold the model misses about half of all cancellations. The probabilities
+are not calibrated, so "0.80" should be read as a ranking score rather than a literal
+80% chance. We have not audited error rates across guest groups. The synthetic data in
+`scripts/make_sample_data.py` exists only for CI and says nothing about real performance.
+
+**Human in the loop.** The app is a decision-support tool. Staff should treat a
+prediction as one input alongside their own knowledge of the guest and the season, and
+any action that affects an individual booking should be made by a person.
 
 ## 8. Collaboration workflow
 
@@ -223,5 +252,5 @@ pytest -q        # synthetic data, no cloud access needed
 
 ## 9. Team
 
-- `TODO: Name 1` — data pipeline, training, API, deployment
-- `TODO: Name 2` — front-end presets, ethics & limitations, model comparison
+- **Debshree Chowdhury** — data pipeline, training, API, deployment, model comparison
+- **George Deng** — front-end presets, ethics & limitations

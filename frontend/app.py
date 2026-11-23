@@ -24,8 +24,6 @@ RISK_COLORS = {"low": "#2e7d32", "medium": "#ef6c00", "high": "#c62828"}
 
 # ---------------------------------------------------------------------------
 # Example bookings users can load with one click.
-# TODO(teammate PR — see docs/TEAMMATE_TASK.md): add at least two more presets,
-# e.g. a "Risky group booking" and a "Loyal business traveller".
 # Keys must match the widget keys used in the form below.
 # ---------------------------------------------------------------------------
 PRESETS: dict[str, dict] = {
@@ -38,6 +36,28 @@ PRESETS: dict[str, dict] = {
         "is_repeated_guest": False, "previous_cancellations": 0,
         "previous_bookings_not_canceled": 0, "booking_changes": 0,
         "days_in_waiting_list": 0, "required_car_parking_spaces": 0,
+        "total_of_special_requests": 1,
+    },
+    "Risky group booking": {
+        "hotel": "City Hotel", "lead_time": 300, "arrival_date_month": "October",
+        "stays_in_weekend_nights": 0, "stays_in_week_nights": 2, "adults": 2,
+        "children": 0, "babies": 0, "meal": "BB", "market_segment": "Groups",
+        "distribution_channel": "TA/TO", "reserved_room_type": "A",
+        "deposit_type": "Non Refund", "customer_type": "Transient-Party", "adr": 85.0,
+        "is_repeated_guest": False, "previous_cancellations": 1,
+        "previous_bookings_not_canceled": 0, "booking_changes": 0,
+        "days_in_waiting_list": 0, "required_car_parking_spaces": 0,
+        "total_of_special_requests": 0,
+    },
+    "Loyal business traveller": {
+        "hotel": "City Hotel", "lead_time": 7, "arrival_date_month": "March",
+        "stays_in_weekend_nights": 0, "stays_in_week_nights": 2, "adults": 1,
+        "children": 0, "babies": 0, "meal": "BB", "market_segment": "Corporate",
+        "distribution_channel": "Corporate", "reserved_room_type": "A",
+        "deposit_type": "No Deposit", "customer_type": "Transient", "adr": 95.0,
+        "is_repeated_guest": True, "previous_cancellations": 0,
+        "previous_bookings_not_canceled": 5, "booking_changes": 0,
+        "days_in_waiting_list": 0, "required_car_parking_spaces": 1,
         "total_of_special_requests": 1,
     },
 }
